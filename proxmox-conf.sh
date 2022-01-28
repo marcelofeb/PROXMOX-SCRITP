@@ -85,7 +85,7 @@ update_menu(){
 			echo -e "${MENU}****************** Script (V01.R01) para Proxmox **********************${NORMAL}"
 			echo -e "${MENU}********************** Por Marcelo Machado ****************************${NORMAL}"
 			echo " "
-			echo -e "${MENU}**${NUMBER} 1)${MENU} Upgrade da versão 4x para a versão 5x ${NORMAL}"
+			echo -e "${MENU}**${NUMBER} 1)${MENU} Upgrade da versão 5x para a versão 6x ${NORMAL}"
 			echo -e "${MENU}**${NUMBER} 2)${MENU} Upgrade da versão 6x para a versão 7x ${NORMAL}"
 			echo -e "${MENU}**${NUMBER} 3)${MENU} Atualização do sistema e instalação de aplicativos mais utilizados ${NORMAL}"
 			echo -e "${MENU}**${NUMBER} 0)${MENU} Volar ${NORMAL}"
@@ -120,6 +120,7 @@ update_menu(){
 				apt update
 				apt dist-upgrade -yellow
 				apt remove linux-image-amd64
+				systemctl disable display-manager
 				read -p "Pressione uma tecla para continuar..."
 				clear
 			 
@@ -130,6 +131,7 @@ update_menu(){
 			    mv /etc/apt/sources.list.d/pve-enterprise.list /root/
 				sed -i '/proxmox/d' /etc/apt/sources.list
 				echo	"deb http://download.proxmox.com/debian/pve buster pve-no-subscription"	>> /etc/apt/sources.list
+				dpkg --configure -a
 				apt update
 				apt upgrade -y
 				sed -i '/proxmox/d' /etc/apt/sources.list
@@ -142,6 +144,7 @@ update_menu(){
 				apt update
 				apt upgrade -y
 				apt dist-upgrade
+				systemctl disable display-manager
 				read -p "Pressione uma tecla para continuar..."
 				clear
 	  
@@ -196,7 +199,7 @@ disco_menu(){
 			echo -e "${MENU}**${NUMBER} 4)${MENU} Verifica o SMART do disco ${NORMAL}"
 			echo -e "${MENU}**${NUMBER} 0)${MENU} Voltar ${NORMAL}"
 			echo " "
-			echo -e "${MENU}***************************************************************${NORMAL}"
+	echo -e "${MENU}***********************************************************************${NORMAL}"
 			echo -e "${ENTER_LINE}Digite um numero dentre as opções acima ou pressione ${RED_TEXT}ENTER ${ENTER_LINE}para sair.${NORMAL} "
 			read -rsn1 opt
 			while [ opt != '' ]	
@@ -207,7 +210,7 @@ disco_menu(){
 			case $opt in
 		    1) clear
 		lsblk -o NAME,SIZE,LABEL,MOUNTPOINT,FSTYPE
-		echo "Qual o disco que vai ser preparado? EX: sda / nvme0n1p"
+		echo "Qual o disco que vai ser preparado? EX: sda / nvme0n1"
 		read FORMATADISCO
 		echo "Qual o nome do Storage? EX: VM01 / RECOVER / BACKUP_2HD / BACKUP_REDE / EXTERNO_TERCA / EXTERNO_QUINTA"
 		read STORAGE
@@ -217,7 +220,7 @@ disco_menu(){
 		echo -e "g\nn\np\n1\n\n\nw" | fdisk /dev/$FORMATADISCO
 		mkfs.ext4 -L $STORAGE /dev/$FORMATADISCO
 		mkdir -p /mnt/$STORAGE
-#		sed -i "$STORAGE" /etc/fstab
+		sed -i /"$STORAGE"/d /etc/fstab
 		echo "" >> /etc/fstab
 		echo "LABEL=$STORAGE /mnt/$STORAGE ext4 defaults,auto,nofail 0 0" >> /etc/fstab
 		mount -a
@@ -228,7 +231,7 @@ disco_menu(){
 			;;
 			2) clear
 		lsblk -o NAME,SIZE,LABEL,MOUNTPOINT,FSTYPE
-		echo "Qual disco será testado o desempenho? EX: sda / nvme0n1p"
+		echo "Qual disco será testado o desempenho? EX: sda / nvme0n1"
 		read TESTEDISCO
 		clear
 		hdparm -tT /dev/$TESTEDISCO
@@ -238,7 +241,7 @@ disco_menu(){
 			;;
 			3) clear
 		lsblk -o NAME,SIZE,LABEL,MOUNTPOINT,FSTYPE
-		echo "Qual disco será testado os setores? EX: sda / nvme0n1p"
+		echo "Qual disco será testado os setores? EX: sda / nvme0n1"
 		read TESTESETORES
 		clear
 		badblocks -sv -c 10240 /dev/$TESTESETORES
@@ -247,7 +250,7 @@ disco_menu(){
 			;;
 			4) clear
 		lsblk -o NAME,SIZE,LABEL,MOUNTPOINT,FSTYPE
-		echo "Qual disco será verificado o status do SMART? EX: sda / nvme0n1p"
+		echo "Qual disco será verificado o status do SMART? EX: sda / nvme0n1"
 		read TESTESMART
 		clear
 		smartctl -a /dev/$TESTESMART
@@ -289,11 +292,10 @@ bkp_menu(){
 			echo -e "${MENU}**${NUMBER} 3)${MENU} Remove BACKUP externo terça (CRONTAB) ${NORMAL}"
 			echo -e "${MENU}**${NUMBER} 4)${MENU} Configura BACKUP externo quinta (CRONTAB) ${NORMAL}"
 			echo -e "${MENU}**${NUMBER} 5)${MENU} Remove BACKUP externo quinta (CRONTAB) ${NORMAL}"
-		    echo -e "${MENU}**${NUMBER} 6)${MENU} Backup da configuração do Proxmox (CRONTAB) ${NORMAL}"
-		    echo -e "${MENU}**${NUMBER} 7)${MENU} Restaura configuração do Proxmox (CRONTAB) ${NORMAL}"
+			echo -e "${MENU}**${NUMBER} 6)${MENU} Instala o PBS lado a lado com o PVE ${NORMAL}"
 			echo -e "${MENU}**${NUMBER} 0)${MENU} Voltar ${NORMAL}"
 			echo " "
-			echo -e "${MENU}****************************************************************${NORMAL}"
+	echo -e "${MENU}***********************************************************************${NORMAL}"
 			echo -e "${ENTER_LINE}Digite um numero dentre as opções acima ou pressione ${RED_TEXT}ENTER ${ENTER_LINE}para sair.${NORMAL} "
 			read -rsn1 opt
 			while [ opt != '' ]	
@@ -349,74 +351,17 @@ bkp_menu(){
 		read -p "Pressione uma tecla para continuar..."
 		clear
 		bkp_menu
-			;;		
-	6)
-		backupname=$(hostname)
-		mkdir -p $backupdir
-		echo "- Criando backup"
-			tar -czf $backupdir$backupname-$(date +%Y_%m_%d-%H_%M_%S).tar.gz --absolute-names $backup_content
-		clear
-		echo "- Backup concluido - Verifique se funcionou corretamente"
-		echo "- Arquivo localizado em $backupdir"
-		read -p "Pressione uma tecla para continuar..."
-			clear
-	  bkp_menu
-			;;	
-	7)
-			unset options i
-			while IFS= read -r -d $'\0' f; do
-			options[i++]="$f"
-			done < <(find $backupdir -maxdepth 1 -type f -name "*.tar.gz" -print0 )
-			select opt in "${options[@]}" "- Retornar ao menu de backup"; do
-			  case "$opt" in 
-			  *.tar.gz)
-				  echo "- Backup $opt selected"
-				  read -p "- Proceder com a restauração?  y = sim / n = no: " -n 1 -r
-				  if [[ $REPLY =~ ^[Yy]$ ]]; then
-					 tar -xf "$opt" -C /
-					 clear
-					 echo "- Arquivos restaurados"
-					 echo "- Instalando as dependencias que estão faltando"
-					 if [ -d "/etc/snmp/" ]; then
-						echo "- snmp encontrado - instalando snmpd"
-						apt-get -yqq install snmpd libsnmp-dev
-					 fi
-					 if [ -d "/etc/fail2ban/" ]; then
-						echo "- fail2ban encontrado - instalando fail2ban"
-						apt-get -yqq install fail2ban
-					 fi
-					 echo "- Caso exista, remontando os storages anteriores"
-					for mount in /etc/systemd/system/*.mount; do
-						echo "- Remontando usando $mount"
-   						source $mount >/dev/null 2>&1
- 						mkdir -p "$Where" 
- 						echo "$What $Where $Type $Options 0 2" >> /etc/fstab  
-					done
-					mount -a
-					for pool in $(zpool import | grep pool: | awk '{print $2}'); do
-						echo "- Importando pool $pool"
-						zpool import -f $pool
-					done
-					 read -p "- Gostaria de reiniciar agora? y = sim / n = no: " -n 1 -r
-					if [[ $REPLY =~ ^[Yy]$ ]]; then
-						reboot now
-					else
-						main_menu
-					fi
-				  else
-					clear
-					bkp_menu
-				  fi
-				  ;;
-				"- Return to backup menu")
-				 bkp_menu
-				  ;;
-				*)
-				  echo "- Please choose using an number"
-				  ;;
-			  esac
-			done
 			;;
+	6)	clear	
+		echo deb http://download.proxmox.com/debian/pbs $distribution pbs-no-subscription >> /etc/apt/sources.list
+		apt update
+		apt update
+		apt-get install proxmox-backup-server
+		echo "PBS instalado!"
+		read -p "Pressione uma tecla para continuar..."
+		clear
+		bkp_menu
+			;;			
       0) clear;
       main_menu;
       ;;
@@ -450,10 +395,10 @@ email_menu(){
 			echo -e "${MENU}**${NUMBER} 1)${MENU} Configura o serviço de e-mail (SERVIDOR DE BACKUP) ${NORMAL}"
 			echo -e "${MENU}**${NUMBER} 2)${MENU} Testa as configurações ${NORMAL}"
 			echo -e "${MENU}**${NUMBER} 3)${MENU} Verifica os logs para tentar executar a correção ${NORMAL}"
-			echo -e "${MENU}**${NUMBER} 4)${MENU} Restaura a configuração original (CRONTAB) ${NORMAL}"
+			echo -e "${MENU}**${NUMBER} 4)${MENU} Restaura a configuração original  ${NORMAL}"
 			echo -e "${MENU}**${NUMBER} 0)${MENU} Voltar ${NORMAL}"
 			echo " "
-			echo -e "${MENU}****************************************************************${NORMAL}"
+	echo -e "${MENU}***********************************************************************${NORMAL}"
 			echo -e "${ENTER_LINE}Digite um numero dentre as opções acima ou pressione ${RED_TEXT}ENTER ${ENTER_LINE}para sair.${NORMAL} "
 			read -rsn1 opt
 			while [ opt != '' ]	
@@ -675,10 +620,15 @@ tweaks_menu(){
 			echo -e "${MENU}**${NUMBER} 1)${MENU} Verifica temperatura (SERVIDOR DE BACKUP) ${NORMAL}"
 			echo -e "${MENU}**${NUMBER} 2)${MENU} Destranca VM ${NORMAL}"
 			echo -e "${MENU}**${NUMBER} 3)${MENU} Destranca e desliga a VM ${NORMAL}"
-			echo -e "${MENU}**${NUMBER} 4)${MENU} Configura SWAP (CRONTAB) ${NORMAL}"
+			echo -e "${MENU}**${NUMBER} 4)${MENU} Configura SWAP ${NORMAL}"
+			echo -e "${MENU}**${NUMBER} 5)${MENU} Informações do Host ${NORMAL}"
+			echo -e "${MENU}**${NUMBER} 6)${MENU} Instala o script ao carregar o usuario ${NORMAL}"
+			echo -e "${MENU}**${NUMBER} 7)${MENU} Remove o script ao carregar o usuario ${NORMAL}"
+			echo -e "${MENU}**${NUMBER} 8)${MENU} Instala interface grafica e o Chromium ${NORMAL}"
+			echo -e "${MENU}**${NUMBER} 9)${MENU} Inicia a interface grafico ${NORMAL}"
 			echo -e "${MENU}**${NUMBER} 0)${MENU} Voltar ${NORMAL}"
 			echo " "
-			echo -e "${MENU}***************************************************************${NORMAL}"
+	echo -e "${MENU}***********************************************************************${NORMAL}"
 			echo -e "${ENTER_LINE}Digite um numero dentre as opções acima ou pressione ${RED_TEXT}ENTER ${ENTER_LINE}para sair.${NORMAL} "
 			read -rsn1 opt
 			while [ opt != '' ]	
@@ -720,7 +670,7 @@ tweaks_menu(){
 		lsblk | grep -qi swap
 		swapenabled=$?
 	   	if [ $swapenabled -eq 0 ]; then
-		read -p "- Do you want to edit swappiness value or disable SWAP? y = yes / anything = no: " -n 1 -r
+		read -p "- Gostaria editar ou desativar o swap? y = sim / n = não: " -n 1 -r
 			if [[ $REPLY =~ ^[Yy]$ ]]; then
 				swapvalue=$(cat /proc/sys/vm/swappiness)
 				echo ""
@@ -744,7 +694,89 @@ tweaks_menu(){
 			read -p "Pressione uma tecla para continuar..."
 	  tweaks_menu
 			;;
-      0) clear;
+				5)	clear;
+		red="\e[31m"
+default="\e[39m"
+white="\e[97m"
+green="\e[32m"
+ 
+date=`date`
+load=`cat /proc/loadavg | awk '{print $1}'`
+memory_usage=`free -m | awk '/Mem:/ { total=$2; used=$3 } END { printf("%3.1f%%", used/total*100)}'`
+
+users=`users | wc -w`
+time=`uptime | grep -ohe 'up .*' | sed 's/,/\ hours/g' | awk '{ printf $2" "$3 }'`
+processes=`ps aux | wc -l`
+ip=`hostname -I | awk '{print $1}'`
+
+root_usage=`df -h / | awk '/\// {print $(NF-1)}'`
+root_free_space=`df -h / | awk '/\// {print $(NF-4)}'`
+ 
+printf "${green}System information as of: ${white}$date \n"
+echo
+printf "${red}System Load${white}:${default}\t%s\t${red}IP Address${white}:${default}\t%s\n" $load $ip
+printf "${red}Memory Usage${white}:${default}\t%s\t${red}System Uptime${white}:${default}\t%s\n" $memory_usage "$time"
+printf "${red}Local Users${white}:${default}\t%s\t${red}Processes${white}:${default}\t%s\n" $users $processes
+echo
+printf "${green}Disk information as of: ${white}$date \n"
+echo
+printf "${red}Usage On /${white}:${default}\t\t%s\t${red}Free On /${white}:${default}\t\t%s\n" $root_usage $root_free_space
+echo
+		read -p "Pressione uma tecla para continuar..."
+		clear
+	  tweaks_menu	
+			;;
+				6)	clear;
+		echo cd\ > /etc/profile.d/proxmox-ini.sh
+		echo cd /PT/SCRIPTS >> /etc/profile.d/proxmox-ini.sh
+		echo rm proxmox-conf.sh	>> /etc/profile.d/proxmox-ini.sh
+		echo wget www.pontotecnico.com.br/APPS/proxmox-conf.sh proxmox-conf.sh >> /etc/profile.d/proxmox-ini.sh
+		echo chmod +x proxmox-conf.sh	>> /etc/profile.d/proxmox-ini.sh
+		echo ./proxmox-conf.sh	>> /etc/profile.d/proxmox-ini.sh
+		chmod +x /etc/profile.d/proxmox-ini.sh
+		echo "Script instalado!"		
+		read -p "Pressione uma tecla para continuar..."
+		clear	  
+	  tweaks_menu
+			;;
+				7)	clear;
+		rm /etc/profile.d/proxmox-ini.sh
+		echo "Script removido!"
+		read -p "Pressione uma tecla para continuar..."
+		clear	  
+	  tweaks_menu
+			;;
+      		8)	clear;
+		apt-get update
+		apt-get upgrade -y
+		apt-get install xfce4 chromium lightdm -y
+		clear	 
+		mkdir /root/Desktop
+		touch /root/Desktop/"Chromium Web Browser.desktop"
+		echo [Desktop Entry] > /root/Desktop/"Chromium Web Browser.desktop"
+		echo Version=1.0 >> /root/Desktop/"Chromium Web Browser.desktop"
+		echo Type=Application	>> /root/Desktop/"Chromium Web Browser.desktop"
+		echo Name=Chromium Web Browser	>> /root/Desktop/"Chromium Web Browser.desktop"
+		echo Comment=Access the Internet	>> /root/Desktop/"Chromium Web Browser.desktop"
+		echo Exec=/usr/bin/chromium %U --no-sandbox	  "https://127.0.0.1:8006" >> /root/Desktop/"Chromium Web Browser.desktop"
+		echo Icon=chromium	>> /root/Desktop/"Chromium Web Browser.desktop"
+		echo Path=	>> /root/Desktop/"Chromium Web Browser.desktop"
+		echo Terminal=false	>> /root/Desktop/"Chromium Web Browser.desktop"
+		echo StartupNotify=true	>> /root/Desktop/"Chromium Web Browser.desktop"
+		chmod +x /root/Desktop/"Chromium Web Browser.desktop"
+		systemctl disable display-manager
+		clear	 
+		echo "Interface grafica instalada!" 
+		read -p "Pressione uma tecla para continuar..."
+		clear	  
+	  tweaks_menu
+			;;
+			9)	clear;
+		startx
+		clear	  
+	  main_menu
+			;;
+	  0) clear;
       main_menu;
       ;;
 
