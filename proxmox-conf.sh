@@ -3,8 +3,9 @@
 # toda a base do script foi inspirada no  https://github.com/Tontonjo/proxmox_toolbox.git
 
 
-version=1.1
-
+version=1.2
+# changelog
+# V01-R02 Adicionado a função 3/Tarefas de backup|7/Nega a gravação do BACKUP local caso HD externo não esteja conectado
 
 # Verificando se é root
 if [[ $(id -u) -ne 0 ]] ; then echo "- Por favor execute com o root / sudo" ; exit 1 ; fi
@@ -29,7 +30,7 @@ main_menu(){
     FGRED=`echo "\033[41m"`
     RED_TEXT=`echo "\033[31m"`
     ENTER_LINE=`echo "\033[33m"`
-    echo -e "${MENU}****************** Script (V01.R01) para Proxmox **********************${NORMAL}"
+    echo -e "${MENU}****************** Script (V01.R02) para Proxmox **********************${NORMAL}"
     echo -e "${MENU}********************** Por Marcelo Machado ****************************${NORMAL}"
     echo " "
     echo -e "${MENU}**${NUMBER} 1)${MENU} Atualização, instalação e upgrade do sistema ${NORMAL}"
@@ -151,6 +152,8 @@ update_menu(){
 			  update_menu;	
 				;;
 				3) clear;
+				mv /etc/apt/sources.list.d/pve-enterprise.list /root/
+				echo "deb http://download.proxmox.com/debian/pve $distribution pve-no-subscription" >> /etc/apt/sources.list
 				apt update
 				apt upgrade -y
 				apt install libsasl2-modules -y
@@ -293,6 +296,7 @@ bkp_menu(){
 			echo -e "${MENU}**${NUMBER} 4)${MENU} Configura BACKUP externo quinta (CRONTAB) ${NORMAL}"
 			echo -e "${MENU}**${NUMBER} 5)${MENU} Remove BACKUP externo quinta (CRONTAB) ${NORMAL}"
 			echo -e "${MENU}**${NUMBER} 6)${MENU} Instala o PBS lado a lado com o PVE ${NORMAL}"
+			echo -e "${MENU}**${NUMBER} 7)${MENU} Nega a gravação do BACKUP local caso HD externo não esteja conectado ${NORMAL}"			
 			echo -e "${MENU}**${NUMBER} 0)${MENU} Voltar ${NORMAL}"
 			echo " "
 	echo -e "${MENU}***********************************************************************${NORMAL}"
@@ -361,7 +365,27 @@ bkp_menu(){
 		read -p "Pressione uma tecla para continuar..."
 		clear
 		bkp_menu
-			;;			
+			;;		
+	7)	clear
+		read -p "Esse processo vai travar a pasta "/dump" local, pressione uma tecla para continuar..."	
+		umount -l /mnt/EXTERNO_SEGUNDA
+		chattr +i /mnt/EXTERNO_SEGUNDA/dump/
+		umount -l /mnt/EXTERNO_TERCA
+		chattr +i /mnt/EXTERNO_TERCA/dump/
+		umount -l /mnt/EXTERNO_QUARTA
+		chattr +i /mnt/EXTERNO_QUARTA/dump/
+		umount -l /mnt/EXTERNO_QUINTA
+		chattr +i /mnt/EXTERNO_QUINTA/dump/
+		umount -l /mnt/EXTERNO_SEXTA
+		chattr +i /mnt/EXTERNO_SEXTA/dump/
+		umount -l /mnt/EXTERNO_SABADO
+		chattr +i /mnt/EXTERNO_SABADO/dump/
+		umount -l /mnt/EXTERNO_DOMINGO
+		chattr +i /mnt/EXTERNO_DOMINGO/dump/
+		echo "Pastas bloquadas!!!"
+		read -p "Pressione uma tecla para continuar..."
+		bkp_menu
+			;;					
       0) clear;
       main_menu;
       ;;
@@ -392,7 +416,7 @@ email_menu(){
     echo -e "${MENU}****************** Script (V01.R01) para Proxmox **********************${NORMAL}"
     echo -e "${MENU}********************** Por Marcelo Machado ****************************${NORMAL}"
 			echo " "
-			echo -e "${MENU}**${NUMBER} 1)${MENU} Configura o serviço de e-mail (SERVIDOR DE BACKUP) ${NORMAL}"
+			echo -e "${MENU}**${NUMBER} 1)${MENU} Configura o serviço de e-mail ${NORMAL}"
 			echo -e "${MENU}**${NUMBER} 2)${MENU} Testa as configurações ${NORMAL}"
 			echo -e "${MENU}**${NUMBER} 3)${MENU} Verifica os logs para tentar executar a correção ${NORMAL}"
 			echo -e "${MENU}**${NUMBER} 4)${MENU} Restaura a configuração original  ${NORMAL}"
@@ -408,7 +432,7 @@ email_menu(){
 			else
 			case $opt in
 		    1) clear
-	echo "- Endereço de e-mail do destinatário do administrador do sistema (user@domain.tld) (root alias): "
+	echo "- Endereço de e-mail do destinatário do administrador do sistema (conta@dominioexemplo.com) (root alias): "
 					read 'varrootmail'
 					echo "- Qual é o endereço do host do servidor de e-mail? (smtp.gmail.com): "
 					read 'varmailserver'
@@ -447,65 +471,65 @@ email_menu(){
 					echo "root: $varrootmail" >> /etc/aliases
 				fi
 				
-				#Setting canonical file for sender - :
+				#Configurando o arquivo canônico para o remetente - :
 				echo "root $varsenderaddress" > /etc/postfix/canonical
 				chmod 600 /etc/postfix/canonical
 				
-				# Preparing for password hash
+				# Preparando para o hash da senha
 				echo [$varmailserver]:$varmailport $varmailusername:$varmailpassword > /etc/postfix/sasl_passwd
 				chmod 600 /etc/postfix/sasl_passwd 
 				
-				# Add mailserver in main.cf
+				# Adicionando o servidor de email no arquivo main.cf
 				sed -i "/#/!s/\(relayhost[[:space:]]*=[[:space:]]*\)\(.*\)/\1"[$varmailserver]:"$varmailport""/"  /etc/postfix/main.cf
 				
-				# Checking TLS settings
-				echo "- Setting correct TLS Settings: $vartls"
+				# Verificando as configurações de TLS
+				echo "- Definindo as configurações de TLS corretas: $vartls"
 				postconf smtp_use_tls=$vartls
 				
-				# Checking for password hash entry
+				# Verificando a entrada de hash da senha
 					if grep "smtp_sasl_password_maps" /etc/postfix/main.cf
 					then
-					echo "- Password hash already setted-up"
+					echo "- Hash da senha já configurado"
 				else
-					echo "- Adding password hash entry"
+					echo "- Adicionando entrada de hash da senha"
 					postconf smtp_sasl_password_maps=hash:/etc/postfix/sasl_passwd
 				fi
-				#checking for certificate
+				# Verificando o certificado
 				if grep "smtp_tls_CAfile" /etc/postfix/main.cf
 					then
-					echo "- TLS CA File looks setted-up"
+					echo "- O arquivo TLS CA parece configurado"
 					else
 					postconf smtp_tls_CAfile=/etc/ssl/certs/ca-certificates.crt
 				fi
-				# Adding sasl security options
+				# Adicionando opções de segurança sasl
 				# eliminates default security options which are imcompatible with gmail
 				if grep "smtp_sasl_security_options" /etc/postfix/main.cf
 					then
-					echo "- Google smtp_sasl_security_options setted-up"
+					echo "- Configuração de smtp_sasl_security_options do Google"
 					else
 					postconf smtp_sasl_security_options=noanonymous
 				fi
 				if grep "smtp_sasl_auth_enable" /etc/postfix/main.cf
 					then
-					echo "- Authentification already enabled"
+					echo "- Autenticação já habilitada"
 					else
 					postconf smtp_sasl_auth_enable=yes
 				fi 
 				if grep "sender_canonical_maps" /etc/postfix/main.cf
 					then
-					echo "- Canonical entry already existing"
+					echo "- Entrada canônica já existente"
 					else
 					postconf sender_canonical_maps=hash:/etc/postfix/canonical
 				fi 
 				
-				echo "- Encrypting password and canonical entry"
+				echo "- Criptografia de senha e entrada canônica"
 				postmap /etc/postfix/sasl_passwd
 				postmap /etc/postfix/canonical
-				echo "- Restarting postfix and enable automatic startup"
+				echo "- Reiniciando o postfix e habilitando a inicialização automática"
 				systemctl restart postfix && systemctl enable postfix
-				echo "- Cleaning file used to generate password hash"
+				echo "- Limpando o arquivo usado para gerar hash de senha"
 				rm -rf "/etc/postfix/sasl_passwd"
-				echo "- Files cleaned"
+				echo "- Removido arquivos"
 				
 			  email_menu
 			;;
@@ -617,7 +641,7 @@ tweaks_menu(){
     echo -e "${MENU}****************** Script (V01.R01) para Proxmox **********************${NORMAL}"
     echo -e "${MENU}********************** Por Marcelo Machado ****************************${NORMAL}"
 			echo " "
-			echo -e "${MENU}**${NUMBER} 1)${MENU} Verifica temperatura (SERVIDOR DE BACKUP) ${NORMAL}"
+			echo -e "${MENU}**${NUMBER} 1)${MENU} Verifica temperatura ${NORMAL}"
 			echo -e "${MENU}**${NUMBER} 2)${MENU} Destranca VM ${NORMAL}"
 			echo -e "${MENU}**${NUMBER} 3)${MENU} Destranca e desliga a VM ${NORMAL}"
 			echo -e "${MENU}**${NUMBER} 4)${MENU} Configura SWAP ${NORMAL}"
@@ -684,7 +708,7 @@ tweaks_menu(){
 				echo "vm.swappiness=$newswapvalue" > /etc/sysctl.d/swappiness.conf
 				echo "- Esvaziando o swap - isto pode levar algum tempo"
 				swapoff -a
-				echo "- Re-habilitando o swap com $newswapvalue value" 
+				echo "- Re-habilitando o swap com valor $newswapvalue " 
 				swapon -a
 				sleep 3	
 			fi
