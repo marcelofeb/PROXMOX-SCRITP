@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# toda a base do script foi inspirada no  https://github.com/Tontonjo/proxmox_toolbox.git
+# toda a base do script foi inspirado no  https://github.com/Tontonjo/proxmox_toolbox.git
+ 
 
-
-version=1.2
+version=1.1
 # changelog
-# V01-R02 Adicionado a função 3/Tarefas de backup|7/Nega a gravação do BACKUP local caso HD externo não esteja conectado
+
 
 # Verificando se é root
 if [[ $(id -u) -ne 0 ]] ; then echo "- Por favor execute com o root / sudo" ; exit 1 ; fi
@@ -30,7 +30,7 @@ main_menu(){
     FGRED=`echo "\033[41m"`
     RED_TEXT=`echo "\033[31m"`
     ENTER_LINE=`echo "\033[33m"`
-    echo -e "${MENU}****************** Script (V01.R02) para Proxmox **********************${NORMAL}"
+    echo -e "${MENU}****************** Script (V01.R01) para Proxmox **********************${NORMAL}"
     echo -e "${MENU}********************** Por Marcelo Machado ****************************${NORMAL}"
     echo " "
     echo -e "${MENU}**${NUMBER} 1)${MENU} Atualização, instalação e upgrade do sistema ${NORMAL}"
@@ -38,6 +38,8 @@ main_menu(){
     echo -e "${MENU}**${NUMBER} 3)${MENU} Tarefas de backup ${NORMAL}"
     echo -e "${MENU}**${NUMBER} 4)${MENU} Configuração do email ${NORMAL}"
     echo -e "${MENU}**${NUMBER} 5)${MENU} Configurações e ajustes ${NORMAL}"
+    echo -e "${MENU}**${NUMBER} 6)${MENU} Configurações de rede ${NORMAL}"	
+    echo -e "${MENU}**${NUMBER} 7)${MENU} Comandos e informações úteis  ${NORMAL}"	
     echo -e "${MENU}**${NUMBER} 0)${MENU} Sair ${NORMAL}"
     echo " "
     echo -e "${MENU}***********************************************************************${NORMAL}"
@@ -65,6 +67,12 @@ main_menu(){
 	     5) clear;
 		tweaks_menu
       ;;
+	     6) clear;
+		lan_menu
+	  ;;
+	     7) clear;
+		com_menu
+      ;;	  
       0)
 	  clear
       exit
@@ -89,7 +97,7 @@ update_menu(){
 			echo -e "${MENU}**${NUMBER} 1)${MENU} Upgrade da versão 5x para a versão 6x ${NORMAL}"
 			echo -e "${MENU}**${NUMBER} 2)${MENU} Upgrade da versão 6x para a versão 7x ${NORMAL}"
 			echo -e "${MENU}**${NUMBER} 3)${MENU} Atualização do sistema e instalação de aplicativos mais utilizados ${NORMAL}"
-			echo -e "${MENU}**${NUMBER} 0)${MENU} Volar ${NORMAL}"
+			echo -e "${MENU}**${NUMBER} 0)${MENU} Voltar ${NORMAL}"
 			echo " "
 			echo -e "${MENU}***********************************************************************${NORMAL}"
 			echo -e "${ENTER_LINE}Digite um numero dentre as opções acima ou pressione ${RED_TEXT}ENTER ${ENTER_LINE}para sair.${NORMAL} "
@@ -161,11 +169,11 @@ update_menu(){
 				apt install ifupdown2 -y
 				apt install ntfs-3g -y
 				apt install ethtool -y
+				
 				read -p "Pressione uma tecla para continuar..."
 				clear 
 			  update_menu;	
 				;;
-      
       0) clear;
       main_menu;
       ;;
@@ -291,12 +299,7 @@ bkp_menu(){
     echo -e "${MENU}********************** Por Marcelo Machado ****************************${NORMAL}"
 			echo " "
 			echo -e "${MENU}**${NUMBER} 1)${MENU} Configura o NFS para BACKUP rede do PROXMOX (SERVIDOR DE BACKUP USANDO UM PVE) ${NORMAL}"
-			echo -e "${MENU}**${NUMBER} 2)${MENU} Configura BACKUP externo terça (CRONTAB) ${NORMAL}"
-			echo -e "${MENU}**${NUMBER} 3)${MENU} Remove BACKUP externo terça (CRONTAB) ${NORMAL}"
-			echo -e "${MENU}**${NUMBER} 4)${MENU} Configura BACKUP externo quinta (CRONTAB) ${NORMAL}"
-			echo -e "${MENU}**${NUMBER} 5)${MENU} Remove BACKUP externo quinta (CRONTAB) ${NORMAL}"
-			echo -e "${MENU}**${NUMBER} 6)${MENU} Instala o PBS lado a lado com o PVE ${NORMAL}"
-			echo -e "${MENU}**${NUMBER} 7)${MENU} Nega a gravação do BACKUP local caso HD externo não esteja conectado ${NORMAL}"			
+			echo -e "${MENU}**${NUMBER} 2)${MENU} Instala o PBS lado a lado com o PVE ${NORMAL}"
 			echo -e "${MENU}**${NUMBER} 0)${MENU} Voltar ${NORMAL}"
 			echo " "
 	echo -e "${MENU}***********************************************************************${NORMAL}"
@@ -311,7 +314,7 @@ bkp_menu(){
 		    1) clear
 		echo "Qual IP do computador cliente? EX: 192.168.0.230?"
 		read IPDOCLIENTENFS
-		echo "Qual o Stoage de Backup? EX: BACKUP_2HD?"
+		echo "Qual o Storage de Backup? EX: BACKUP_2HD?"
 		read STORAGEBACKUP
 		apt-get install nfs-kernel-server -y
 		echo	"/mnt/$STORAGEBACKUP/ $IPDOCLIENTENFS(rw,async,no_subtree_check)"	>	/etc/exports
@@ -322,41 +325,7 @@ bkp_menu(){
 		clear
 			  bkp_menu
 			;;
-	2)
-		sed -i '/Tue/d' /var/spool/cron/crontabs/root
-		sed -i '/Wed/d' /var/spool/cron/crontabs/root
-		echo "*/1 * * * Tue mount -a" >> /var/spool/cron/crontabs/root
-		echo "0 10 * * Wed umount /mnt/EXTERNO_TERCA" >> /var/spool/cron/crontabs/root
-		echo "Backup externo terça configurado com sucesso!"
-		read -p "Pressione uma tecla para continuar..."
-		clear
-			  bkp_menu
-			;;
-	3)
-		sed -i '/Tue/d' /var/spool/cron/crontabs/root
-		sed -i '/Wed/d' /var/spool/cron/crontabs/root
-		read -p "Pressione uma tecla para continuar..."
-		clear
-			  bkp_menu
-			;;
-	4)
-		sed -i '/Thu/d' /var/spool/cron/crontabs/root
-		sed -i '/Fri/d' /var/spool/cron/crontabs/root
-		echo "*/1 * * * Thu mount -a" >> /var/spool/cron/crontabs/root
-		echo "0 10 * * Fri umount /mnt/EXTERNO_QUINTA" >> /var/spool/cron/crontabs/root
-		echo "Backup externo quinta configurado com sucesso!"
-		read -p "Pressione uma tecla para continuar..."
-		clear
-			  bkp_menu
-			;;
-	5)
-		sed -i '/Thu/d' /var/spool/cron/crontabs/root
-		sed -i '/Fri/d' /var/spool/cron/crontabs/root
-		read -p "Pressione uma tecla para continuar..."
-		clear
-		bkp_menu
-			;;
-	6)	clear	
+	2)	clear	
 		echo deb http://download.proxmox.com/debian/pbs $distribution pbs-no-subscription >> /etc/apt/sources.list
 		apt update
 		apt update
@@ -364,26 +333,6 @@ bkp_menu(){
 		echo "PBS instalado!"
 		read -p "Pressione uma tecla para continuar..."
 		clear
-		bkp_menu
-			;;		
-	7)	clear
-		read -p "Esse processo vai travar a pasta "/dump" local, pressione uma tecla para continuar..."	
-		umount -l /mnt/EXTERNO_SEGUNDA
-		chattr +i /mnt/EXTERNO_SEGUNDA/dump/
-		umount -l /mnt/EXTERNO_TERCA
-		chattr +i /mnt/EXTERNO_TERCA/dump/
-		umount -l /mnt/EXTERNO_QUARTA
-		chattr +i /mnt/EXTERNO_QUARTA/dump/
-		umount -l /mnt/EXTERNO_QUINTA
-		chattr +i /mnt/EXTERNO_QUINTA/dump/
-		umount -l /mnt/EXTERNO_SEXTA
-		chattr +i /mnt/EXTERNO_SEXTA/dump/
-		umount -l /mnt/EXTERNO_SABADO
-		chattr +i /mnt/EXTERNO_SABADO/dump/
-		umount -l /mnt/EXTERNO_DOMINGO
-		chattr +i /mnt/EXTERNO_DOMINGO/dump/
-		echo "Pastas bloquadas!!!"
-		read -p "Pressione uma tecla para continuar..."
 		bkp_menu
 			;;					
       0) clear;
@@ -525,6 +474,8 @@ email_menu(){
 				echo "- Criptografia de senha e entrada canônica"
 				postmap /etc/postfix/sasl_passwd
 				postmap /etc/postfix/canonical
+				apt update
+				apt install libsasl2-modules -y
 				echo "- Reiniciando o postfix e habilitando a inicialização automática"
 				systemctl restart postfix && systemctl enable postfix
 				echo "- Limpando o arquivo usado para gerar hash de senha"
@@ -752,9 +703,9 @@ echo
 			;;
 				6)	clear;
 		echo cd\ > /etc/profile.d/proxmox-ini.sh
-		echo cd /PT/SCRIPTS >> /etc/profile.d/proxmox-ini.sh
+		echo cd /TcTI/SCRIPTS >> /etc/profile.d/proxmox-ini.sh
 		echo rm proxmox-conf.sh	>> /etc/profile.d/proxmox-ini.sh
-		echo wget www.pontotecnico.com.br/APPS/proxmox-conf.sh proxmox-conf.sh >> /etc/profile.d/proxmox-ini.sh
+		echo wget https://raw.githubusercontent.com/TcTI-BR/PROXMOX-SCRIPTS/main/proxmox-conf.sh >> /etc/profile.d/proxmox-ini.sh
 		echo chmod +x proxmox-conf.sh	>> /etc/profile.d/proxmox-ini.sh
 		echo ./proxmox-conf.sh	>> /etc/profile.d/proxmox-ini.sh
 		chmod +x /etc/profile.d/proxmox-ini.sh
@@ -788,6 +739,7 @@ echo
 		echo Terminal=false	>> /root/Desktop/"Chromium Web Browser.desktop"
 		echo StartupNotify=true	>> /root/Desktop/"Chromium Web Browser.desktop"
 		chmod +x /root/Desktop/"Chromium Web Browser.desktop"
+		apt-get install dbus-x11
 		systemctl disable display-manager
 		clear	 
 		echo "Interface grafica instalada!" 
@@ -818,5 +770,138 @@ echo
   done
 }
 
+
+
+lan_menu(){
+			clear
+	NORMAL=`echo "\033[m"`
+    MENU=`echo "\033[36m"` #Azul
+    NUMBER=`echo "\033[33m"` #Amarelo
+    FGRED=`echo "\033[41m"`
+    RED_TEXT=`echo "\033[31m"`
+    ENTER_LINE=`echo "\033[33m"`
+    echo -e "${MENU}****************** Script (V01.R01) para Proxmox **********************${NORMAL}"
+    echo -e "${MENU}********************** Por Marcelo Machado ****************************${NORMAL}"
+			echo " "
+			echo -e "${MENU}**${NUMBER} 1)${MENU} Configura rede${NORMAL}"
+			echo -e "${MENU}**${NUMBER} 2)${MENU} Configura DNS ${NORMAL}"
+			echo -e "${MENU}**${NUMBER} 3)${MENU} Configura hosts ${NORMAL}"
+			echo -e "${MENU}**${NUMBER} 0)${MENU} Voltar ${NORMAL}"
+			echo " "
+	echo -e "${MENU}***********************************************************************${NORMAL}"
+			echo -e "${ENTER_LINE}Digite um numero dentre as opções acima ou pressione ${RED_TEXT}ENTER ${ENTER_LINE}para sair.${NORMAL} "
+			read -rsn1 opt
+			while [ opt != '' ]	
+		  do
+			if [[ $opt = "" ]]; then
+			  exit;
+			else
+			case $opt in
+    1) clear
+		nano /etc/network/interfaces
+		read -p "Pressione uma tecla para continuar..."
+		clear
+		lan_menu
+			;;
+	2)	clear;
+		nano /etc/resolv.conf
+		read -p "Pressione uma tecla para continuar..."
+		clear	  
+	  lan_menu
+			;;
+	3)	clear;
+		nano /etc/hosts
+		read -p "Pressione uma tecla para continuar..."
+		clear
+	  lan_menu	
+			;;
+	  0) clear;
+      main_menu;
+      ;;
+
+      x)exit;
+      ;;
+
+      \n)exit;
+      ;;
+
+      *)clear;
+      main_menu;
+      ;;
+      esac
+    fi
+  done
+}
+
+com_menu(){
+			clear
+	NORMAL=`echo "\033[m"`
+    MENU=`echo "\033[36m"` #Azul
+    NUMBER=`echo "\033[33m"` #Amarelo
+    FGRED=`echo "\033[41m"`
+    RED_TEXT=`echo "\033[31m"`
+    ENTER_LINE=`echo "\033[33m"`
+    echo -e "${MENU}****************** Script (V01.R01) para Proxmox **********************${NORMAL}"
+    echo -e "${MENU}********************** Por Marcelo Machado ****************************${NORMAL}"
+			echo " "
+			echo -e "${MENU}**${NUMBER} 1)${MENU} Comandos linux ${NORMAL}"
+			echo -e "${MENU}**${NUMBER} 2)${MENU} Comandos PVE ${NORMAL}"
+			echo -e "${MENU}**${NUMBER} 3)${MENU} Caminho e informações gerais ${NORMAL}"
+			echo " "
+	echo -e "${MENU}***********************************************************************${NORMAL}"
+			echo -e "${ENTER_LINE}Digite um numero dentre as opções acima ou pressione ${RED_TEXT}ENTER ${ENTER_LINE}para sair.${NORMAL} "
+			read -rsn1 opt
+			while [ opt != '' ]	
+		  do
+			if [[ $opt = "" ]]; then
+			  exit;
+			else
+			case $opt in
+		    1) clear
+		echo "ip address = Ver os IPs setados nas interfaces"
+		echo "df -h = Lista o tamanho dos pontos de montagem"
+		echo "rsync --progress /CAMINHO_DE_ORIGEM.EXTENSÃO   /CAMINHO_DE_DESTINO/ = Comando para copiar com progressão"
+		echo ""
+		echo ""
+		read -p "Pressione uma tecla para continuar..."
+				clear
+		com_menu
+			;;
+		    2) clear
+		echo "qm stop|shutdown|start|unlock VMID = comando para desligar|desligar via sistema|ligar|desbloquear VMs"
+		echo "qm  VMID = Destranca VM bloqueada"
+		echo ""
+		echo ""
+		read -p "Pressione uma tecla para continuar..."
+				clear
+		com_menu
+			;;
+		    3) clear
+		echo "/etc/pve/nodes/nome-do-node/qemu-server/ = Caminho onde ficam os VMIDS"
+		echo "/var/lib/vz/template/iso = Caminho os ficam os arquivos ISO"
+		echo ""
+		echo ""
+		read -p "Pressione uma tecla para continuar..."
+				clear
+		com_menu
+			;;
+
+	  0) clear;
+      main_menu;
+      ;;
+
+      x)exit;
+      ;;
+
+      \n)exit;
+      ;;
+
+      *)clear;
+      main_menu;
+      ;;
+      esac
+    fi
+  done
+}
 
 main_menu
